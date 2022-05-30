@@ -32,6 +32,11 @@ public:
 
     vector<int> distantaMinimaBFS(ostream &out, int start);
 
+    int BFS_amici2(int start, vector<vector<int>> &matriceAdiacenta);
+
+    void bfs_marmelada(int start, vector<vector<pair<int, int>>> &matriceAdiacenta, vector<int> &vizitate,
+                       vector<int> &muchii);
+
     int componenteConexe();
 
     int componenteConexeRecursiv(vector<int> &vizitate, int startPos = 1);
@@ -59,6 +64,9 @@ public:
     void setMatriceAdiacenta(vector<vector<int>> matriceAdiacenta2) {
         this->matriceAdiacenta = matriceAdiacenta2;
     }
+
+    void dfs_pamant(const int nod, vector<int> &time, vector<int> &low_time, vector<int> &parent, vector<int> &vizitate,
+                    vector<int> &result);
 
     friend istream &operator>>(istream &in, Graf &graf) {
         cout << "\nEste graf orientat? (1 pentru DA, 0 pentru NU): ";
@@ -194,6 +202,30 @@ void Graf::eliminareMuchie(const int startNode, const int endNode) {
             if (this->matriceAdiacenta[endNode][i] == startNode) {
                 this->matriceAdiacenta[endNode][i] = this->matriceAdiacenta[endNode][len - 1];
                 this->matriceAdiacenta[endNode].pop_back();
+            }
+        }
+    }
+}
+
+void Graf::bfs_marmelada(int start, vector<vector<pair<int, int>>> &matriceAdiacenta2, vector<int> &vizitate,
+                         vector<int> &muchii) {
+
+    // Queue in care salvam elementele care trebuiesc vizitate. Cand se goleste, nu mai avem nimic de vizitat
+    queue<int> queue;
+    queue.push(start);
+    vizitate[start] = -1;
+
+    while (!queue.empty()) {
+        int nodUrm = queue.front();
+        queue.pop();
+        for (int i = 0; i < matriceAdiacenta2[nodUrm].size(); i++) { // parcurgem fiecare nod adiacent al nodului curent
+            int nod = matriceAdiacenta2[nodUrm][i].first;
+            int muchie = matriceAdiacenta2[nodUrm][i].second;
+            // Daca nu a fost vizitat inca
+            if (!vizitate[nod]) {
+                vizitate[nod] = nodUrm;
+                muchii[nod] = muchie;
+                queue.push(nod); // Il adaugam in coada pentru a fi vizitat
             }
         }
     }
@@ -346,7 +378,39 @@ Graf::MuchieCritica(const int nod, vector<int> &time, vector<int> &low_time, vec
             low_time[nod] = min(low_time[nod], time[nodAdiacentCurent]);
         }
     }
-};
+}
+
+void
+Graf::dfs_pamant(const int nod, vector<int> &time, vector<int> &low_time, vector<int> &parent, vector<int> &vizitate,
+                 vector<int> &result) {
+
+    static int t = 0;
+    vizitate[nod] = 1; // vizitam nodul
+    t++;
+    low_time[nod] = t;
+    time[nod] = low_time[nod];
+    int ct = 0;
+
+    // parcurgem fiecare nod adiacent nodului curent
+    for (int i = 1; i < matriceAdiacenta[nod].size(); i++) {
+        int nodAdiacentCurent = matriceAdiacenta[nod][i];
+        if (!vizitate[nodAdiacentCurent]) { // daca nu e vizitat
+            ct++;
+            parent[nodAdiacentCurent] = nod; // tinem minte parintele
+            dfs_pamant(nodAdiacentCurent, time, low_time, parent,
+                       vizitate, result); // facem verificarea si pentru nodulAdiacentCurent
+            low_time[nod] = min(low_time[nod],
+                                low_time[nodAdiacentCurent]); // actualizam low_time[nod] daca nodAdiacentCurent are muchie cu un parinte al nodului sau cu nodul
+            if (low_time[nodAdiacentCurent] >
+                time[nod]) { // conditia ca muchiia [nod,nodAdiacentCuret] sa fie critica (sa aiba drum la nod sau ascendentii sai)
+//                cout << nod << " " << nodAdiacentCurent << '\n';
+                result[i] = 1;
+            }
+        } else if (nodAdiacentCurent != parent[nod]) {
+            low_time[nod] = min(low_time[nod], time[nodAdiacentCurent]);
+        }
+    }
+}
 
 /*
  * Ia fiecare nod al grafului si apeleaza functia MuchiCritica
@@ -455,7 +519,7 @@ int Graf::disjoint(int cod, int x, int y, vector<int> &parinte, vector<int> &ran
 
 vector<int> Graf::dijkstra(vector<vector<pair<int, int>>> &matriceAdiacentaCosturi, int nodStart) {
     vector<int> vizitate(nrNoduri + 1, 0), dist(nrNoduri + 1, INT_MAX);
-// heap in care retinem perechi de tipul (distanta,nod), unde distanta = distanta de la nodStart la nod
+    // heap in care retinem perechi de tipul (distanta,nod), unde distanta = distanta de la nodStart la nod
     priority_queue<pair<int, int>, vector<pair<int, int>>, greater<pair<int, int>>> pq;
 
     dist[nodStart] = 0; // distanta de la nodStart la el insusi este 0
@@ -465,11 +529,11 @@ vector<int> Graf::dijkstra(vector<vector<pair<int, int>>> &matriceAdiacentaCostu
         pq.pop();
         if (vizitate[nod] == 0) {
             vizitate[nod] = 1;
-// parcurgem nodurile adiacente nodului curent
+            // parcurgem nodurile adiacente nodului curent
             for (auto it = matriceAdiacentaCosturi[nod].begin(); it != matriceAdiacentaCosturi[nod].end(); it++) {
                 int nodAdiacent = it->first;
                 int distanta = it->second; // distanta de la nodul curent la nodul adiacent
-// verificam daca distanta de la nodul curent la nodStart + distanta de la nodul curent la nodul adiacent este minima, caz in care o adaugam in heap
+                // verificam daca distanta de la nodul curent la nodStart + distanta de la nodul curent la nodul adiacent este minima, caz in care o adaugam in heap
                 if (dist[nodAdiacent] > dist[nod] + distanta) {
                     dist[nodAdiacent] = dist[nod] + distanta;
                     pq.push({dist[nodAdiacent], nodAdiacent});
@@ -489,12 +553,12 @@ vector<int> Graf::bellman_ford(vector<vector<pair<int, int>>> &matriceAdiacentaC
     dist[nodStart] = 0; // distanta de la nod la el insusii este 0
 
     while (!q.empty()) {
-// Scoatem primul nod din coada
+        // Scoatem primul nod din coada
         int nod = q.front();
         q.pop();
         inCoada[nod] = 0;
 
-// Parcurgem nodurile adiacente nodului curent
+        // Parcurgem nodurile adiacente nodului curent
         for (auto it = matriceAdiacentaCosturi[nod].begin(); it != matriceAdiacentaCosturi[nod].end(); it++) {
             int nodAdiacent = it->first;
             int distanta = it->second;
@@ -507,7 +571,7 @@ vector<int> Graf::bellman_ford(vector<vector<pair<int, int>>> &matriceAdiacentaC
                     return dist;
                 }
 
-// Daca nu este in coada il adaugam
+                // Daca nu este in coada il adaugam
                 if (inCoada[nodAdiacent] == 0) {
                     q.push(nodAdiacent);
                     inCoada[nodStart] = 1;
@@ -638,7 +702,9 @@ int Graf::hamilton(vector<vector<pair<int, int>>> matriceAdiacentaCosturi) {
             if (i & (1 << j)) {
                 for (int k = 0; k < matriceAdiacentaCosturi[j].size(); k++) {
                     if (i & (1 << matriceAdiacentaCosturi[j][k].first)) {
-                        matriceCosturi[i][j] = min(matriceCosturi[i][j], matriceCosturi[i ^ (1 << j)][matriceAdiacentaCosturi[j][k].first] + matriceAdiacentaCosturi[j][k].second);
+                        matriceCosturi[i][j] = min(matriceCosturi[i][j],
+                                                   matriceCosturi[i ^ (1 << j)][matriceAdiacentaCosturi[j][k].first] +
+                                                   matriceAdiacentaCosturi[j][k].second);
                     }
                 }
             }
@@ -647,8 +713,41 @@ int Graf::hamilton(vector<vector<pair<int, int>>> matriceAdiacentaCosturi) {
 
     int sol = 0x3f3f3f3f;
     for (int i = 0; i < matriceAdiacentaCosturi[0].size(); i++) {
-        sol = min(sol, matriceCosturi[put - 1][matriceAdiacentaCosturi[0][i].first] + matriceAdiacentaCosturi[0][i].second);
+        sol = min(sol,
+                  matriceCosturi[put - 1][matriceAdiacentaCosturi[0][i].first] + matriceAdiacentaCosturi[0][i].second);
     }
+    return sol;
+}
+
+int Graf::BFS_amici2(int start, vector<vector<int>> &matriceAdiacenta2) {
+    int maxi = 0;
+    vector<int> vizitate(this->nrNoduri + 1, 0);
+
+    // Queue in care salvam elementele care trebuiesc vizitate. Cand se goleste, nu mai avem nimic de vizitat
+    queue<int> queue;
+    queue.push(start);
+    vizitate[start] = 1;
+
+    while (!queue.empty()) {
+        int nodUrm = queue.front();
+        queue.pop();
+        for (int i = 0; i < matriceAdiacenta2[nodUrm].size(); i++) { // parcurgem fiecare nod adiacent al nodului curent
+            int nod = matriceAdiacenta2[nodUrm][i];
+            // Daca nu a fost vizitat inca
+            if (vizitate[nod] == 0) {
+                vizitate[nod] = vizitate[nodUrm] + 1;
+                queue.push(nod); // Il adaugam in coada pentru a fi vizitat
+                maxi = max(maxi, vizitate[nodUrm]);
+            }
+        }
+    }
+
+    int sol = 0;
+    for (int i = 1; i <= maxi; i *= 2) {
+        sol++;
+    }
+
+    // Returnam maximul
     return sol;
 }
 
@@ -1072,6 +1171,76 @@ void infoarena_hamilton() {
     g << sol;
 }
 
+void infoarena_amici2() {
+    ifstream f("amici2.in");
+    ofstream g("amici2.out");
+
+    int nr_teste;
+    f >> nr_teste;
+    for (int i = 0; i < nr_teste; i++) {
+        int n, m;
+        f >> n >> m;
+        Graf graf(n, false);
+        vector<vector<int>> matriceAdiacenta(n + 1);
+        for (int j = 0; j < m; j++) {
+            int x, y;
+            f >> x >> y;
+            matriceAdiacenta[x].push_back(y);
+            matriceAdiacenta[y].push_back(x);
+        }
+        g << graf.BFS_amici2(1, matriceAdiacenta) << '\n';
+    }
+}
+
+void infoarena_marmelada() {
+    ifstream f("marmelada.in");
+    ofstream g("marmelada.out");
+
+    int n, m, s, d;
+    f >> n >> m >> s >> d;
+    Graf graf(n, false);
+    vector<vector<pair<int, int>>> matriceAdiacenta(n+1);
+    for (int i = 1; i <= m; i++) {
+        int x, y;
+        f >> x >> y;
+        matriceAdiacenta[x].push_back(make_pair(y, i));
+        matriceAdiacenta[y].push_back(make_pair(x, i));
+    }
+
+    vector<pair<int, int>> l(m + 1, {0,0});
+    for (int i = 1; i <= m; i++) {
+        int x;
+        f >> x;
+        l[i] = make_pair(x, i);
+    }
+
+    vector<int> vizitate(n + 1, 0), muchii(m + n + 1);
+
+    graf.bfs_marmelada(s, matriceAdiacenta, vizitate, muchii);
+
+    sort(l.begin(), l.end());
+    vector<int> result(m+1, 0);
+
+    int dd = d;
+    int ct = 1;
+    while (vizitate[dd] > 0) {
+        result[muchii[dd]] = l[ct].second;
+        dd = vizitate[dd];
+        ct++;
+    }
+
+    for (int i = 1; i <= m; i++) {
+        if (result[i] == 0) {
+            result[i] = l[ct].second;
+            ct++;
+        }
+    }
+
+    for (int i = 1; i <= m; i++) {
+        g << result[i] << '\n';
+    }
+}
+
 /* -------------------------------------------------------------- */
 
 int main() {
@@ -1089,6 +1258,8 @@ int main() {
 //    havel_hakimi({0, 1, 2, 3});
 //    infoarena_ciclu_eulerian();
 //    infoarena_apm();
-    infoarena_hamilton();
+//    infoarena_hamilton();
+//    infoarena_amici2();
+    infoarena_marmelada();
     return 0;
 }
